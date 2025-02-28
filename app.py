@@ -51,11 +51,14 @@ def find_customer(id_number):
 
 # 품목 정보 검색
 def find_item(item_code):
-    return st.session_state.items.get(item_code, {})
+    return st.session_state.item_data.get(item_code, {})
 
 # 세션 상태 초기화
 if 'customers' not in st.session_state:
-    st.session_state.customers, st.session_state.transactions, st.session_state.items = load_or_create_data()
+    customers, transactions, items = load_or_create_data()
+    st.session_state.customers = customers
+    st.session_state.transactions = transactions
+    st.session_state.item_data = items
 
 # 페이지 설정
 st.set_page_config(page_title="거래 관리 시스템", layout="wide")
@@ -85,7 +88,7 @@ with tab1:
                 st.warning("⚠️ 등록된 사업자/핸드폰번호의 거래처명이 다릅니다!")
                 if st.button("거래처 정보 업데이트"):
                     st.session_state.customers[id_number]['name'] = customer_name
-                    save_data(st.session_state.customers, st.session_state.transactions, st.session_state.items)
+                    save_data(st.session_state.customers, st.session_state.transactions, st.session_state.item_data)
                     st.success("거래처 정보가 업데이트되었습니다.")
                     st.rerun()
             current_points = customer_info.get('points', 0)
@@ -101,13 +104,24 @@ with tab1:
         if st.button("포인트 사용"):
             if points_to_use > 0:
                 st.session_state.customers[id_number]['points'] -= points_to_use
-                save_data(st.session_state.customers, st.session_state.transactions, st.session_state.items)
+                save_data(st.session_state.customers, st.session_state.transactions, st.session_state.item_data)
                 st.success(f"{points_to_use:,} 포인트가 사용되었습니다.")
                 st.rerun()
 
     # 하단부 - 거래 정보 입력
     st.markdown("---")
     st.subheader("거래 정보")
+    
+    # 품목 목록 표시
+    if len(st.session_state.item_data) > 0:
+        items_df = pd.DataFrame([
+            {"품목코드": code, "품목명": info["name"]}
+            for code, info in st.session_state.item_data.items()
+        ])
+        st.dataframe(items_df, use_container_width=True)
+    else:
+        st.warning("등록된 품목이 없습니다. 품목 관리 탭에서 품목을 먼저 등록해주세요.")
+    
     col1, col2, col3, col4, col5, col6 = st.columns(6)
 
     with col1:
@@ -153,7 +167,7 @@ with tab1:
                 "customer_name": customer_name,
                 "customer_id": id_number,
                 "item_code": item_code,
-                "item_name": st.session_state.items[item_code]['name'],
+                "item_name": st.session_state.item_data[item_code]['name'],
                 "quantity": quantity,
                 "price": price,
                 "supply_value": supply_value,
@@ -172,7 +186,7 @@ with tab1:
             st.session_state.customers[id_number]['points'] += points
             
             # 데이터 저장
-            save_data(st.session_state.customers, st.session_state.transactions, st.session_state.items)
+            save_data(st.session_state.customers, st.session_state.transactions, st.session_state.item_data)
             
             st.success(f"거래가 등록되었습니다. {points:,} 포인트가 적립되었습니다.")
             st.rerun()
@@ -193,19 +207,19 @@ with tab2:
             if not new_item_code or not new_item_name:
                 st.error("품목코드와 품목명을 모두 입력해주세요.")
             else:
-                st.session_state.items[new_item_code] = {
+                st.session_state.item_data[new_item_code] = {
                     "name": new_item_name
                 }
-                save_data(st.session_state.customers, st.session_state.transactions, st.session_state.items)
+                save_data(st.session_state.customers, st.session_state.transactions, st.session_state.item_data)
                 st.success(f"품목이 등록/수정되었습니다: [{new_item_code}] {new_item_name}")
                 st.rerun()
     
     # 등록된 품목 목록
     st.markdown("---")
     st.subheader("등록된 품목 목록")
-    if st.session_state.items:
+    if st.session_state.item_data:
         items_df = pd.DataFrame([
             {"품목코드": code, "품목명": info["name"]}
-            for code, info in st.session_state.items.items()
+            for code, info in st.session_state.item_data.items()
         ])
         st.dataframe(items_df, use_container_width=True) 
